@@ -13,7 +13,7 @@ NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 # production, et évite les appels trop fréquents (max ~1 req/s en usage
 # gratuit ; passe à un fournisseur payant — Mapbox, LocationIQ, Google —
 # si le volume grandit).
-USER_AGENT = "LivraisonAppTchad/0.1 (beta - contact: barka@example.com)"
+USER_AGENT = "LivraisonAppTchad/0.1"
 
 
 class GeocodeResult(BaseModel):
