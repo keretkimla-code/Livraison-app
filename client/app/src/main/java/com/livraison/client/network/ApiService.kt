@@ -34,4 +34,7 @@ interface ApiService {
 
     @POST("orders/{orderId}/messages")
     suspend fun sendMessage(@Path("orderId") orderId: String, @Body request: ChatMessageIn): ChatMessageResponse
+
+    @GET("geocode/search")
+    suspend fun searchAddress(@Query("q") query: String): List<GeocodeResult>
 }

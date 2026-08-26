@@ -49,8 +49,10 @@ fun LivraisonApp() {
         composable(Screen.Home.route) {
             HomeScreen(
                 uiState = uiState,
-                onPickupChange = viewModel::updatePickup,
-                onDropoffChange = viewModel::updateDropoff,
+                onPickupQueryChange = viewModel::updatePickupQuery,
+                onPickupSuggestionSelected = viewModel::selectPickupSuggestion,
+                onDropoffQueryChange = viewModel::updateDropoffQuery,
+                onDropoffSuggestionSelected = viewModel::selectDropoffSuggestion,
                 onParcelTypeChange = viewModel::updateParcelType,
                 onEstimate = {
                     viewModel.estimatePrice()

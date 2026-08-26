@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routers import auth, users, couriers, orders, ws, chat
+from app.routers import auth, users, couriers, orders, ws, chat, geocode
 
 # Crée les tables si elles n'existent pas encore.
 # En production, préfère un outil de migration (ex. Alembic) à ce
@@ -33,6 +33,7 @@ app.include_router(users.router)
 app.include_router(couriers.router)
 app.include_router(orders.router)
 app.include_router(chat.router)
+app.include_router(geocode.router)
 app.include_router(ws.router)
 
 

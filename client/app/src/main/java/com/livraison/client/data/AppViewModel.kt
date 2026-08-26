@@ -8,32 +8,43 @@ import com.livraison.client.data.model.OrderStatus
 import com.livraison.client.data.model.ParcelType
 import com.livraison.client.network.RetrofitClient
 import com.livraison.client.network.dto.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 /**
  * État global de l'application, connecté au backend FastAPI via Retrofit.
  *
  * Ce qui reste simulé côté app (documenté ici et dans le README) :
- * - les coordonnées GPS des adresses saisies (générées aléatoirement
- *   autour de N'Djamena, faute d'intégration d'un vrai service de
- *   géocodage/carte — à remplacer par Google Maps Places API ou
- *   Nominatim/OSM en V1)
  * - la position du livreur sur la carte pendant le suivi, déduite du
  *   statut de la commande (pas de flux GPS temps réel pour l'instant —
- *   prévu via WebSocket en V1)
+ *   prévu via WebSocket en V1, l'endpoint /ws/orders/{id} existe déjà
+ *   côté backend)
+ *
+ * Le géocodage des adresses (recherche + coordonnées GPS) est désormais
+ * réel, via l'endpoint /geocode/search du backend (proxy Nominatim/OSM).
  */
 data class AppUiState(
     val phoneNumber: String = "",
     val otpSent: Boolean = false,
     val isAuthenticated: Boolean = false,
     val fullName: String = "",
+
     val pickupAddress: String = "",
+    val pickupLat: Double? = null,
+    val pickupLng: Double? = null,
+    val pickupSuggestions: List<GeocodeResult> = emptyList(),
+    val isSearchingPickup: Boolean = false,
+
     val dropoffAddress: String = "",
+    val dropoffLat: Double? = null,
+    val dropoffLng: Double? = null,
+    val dropoffSuggestions: List<GeocodeResult> = emptyList(),
+    val isSearchingDropoff: Boolean = false,
+
     val parcelType: ParcelType = ParcelType.COLIS_LEGER,
     val estimatedPrice: Int = 0,
     val estimatedDistanceKm: Double = 0.0,
@@ -42,7 +53,11 @@ data class AppUiState(
     val orderHistory: List<DeliveryOrder> = emptyList(),
     val isBusy: Boolean = false,
     val errorMessage: String? = null
-)
+) {
+    /** La commande ne peut être estimée que si les deux adresses ont été choisies dans les suggestions. */
+    val addressesReady: Boolean
+        get() = pickupLat != null && pickupLng != null && dropoffLat != null && dropoffLng != null
+}
 
 class AppViewModel : ViewModel() {
 
@@ -50,16 +65,10 @@ class AppViewModel : ViewModel() {
     val uiState: StateFlow<AppUiState> = _uiState
 
     private val api get() = RetrofitClient.service
-    private val random = Random(System.currentTimeMillis())
 
-    // Coordonnées approximatives associées à la dernière estimation, pour
-    // réutilisation lors de la création de la commande.
-    private var pendingPickupLat = 0.0
-    private var pendingPickupLng = 0.0
-    private var pendingDropoffLat = 0.0
-    private var pendingDropoffLng = 0.0
-
-    private var pollingJob: kotlinx.coroutines.Job? = null
+    private var pollingJob: Job? = null
+    private var pickupSearchJob: Job? = null
+    private var dropoffSearchJob: Job? = null
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
@@ -115,34 +124,101 @@ class AppViewModel : ViewModel() {
         }
     }
 
-    // --- Création de commande ---
+    // --- Recherche d'adresse (géocodage réel via le backend) ---
 
-    fun updatePickup(address: String) = _uiState.update { it.copy(pickupAddress = address) }
-    fun updateDropoff(address: String) = _uiState.update { it.copy(dropoffAddress = address) }
-    fun updateParcelType(type: ParcelType) = _uiState.update { it.copy(parcelType = type) }
-
-    /**
-     * Génère des coordonnées plausibles autour de N'Djamena pour une
-     * adresse texte donnée (faute de géocodage réel en bêta).
-     */
-    private fun fakeCoordinatesFor(seed: String): Pair<Double, Double> {
-        val r = Random(seed.hashCode())
-        val lat = 12.1348 + (r.nextDouble() - 0.5) * 0.08
-        val lng = 15.0557 + (r.nextDouble() - 0.5) * 0.08
-        return lat to lng
+    fun updatePickupQuery(text: String) {
+        _uiState.update {
+            it.copy(
+                pickupAddress = text,
+                pickupLat = null,
+                pickupLng = null,
+                pickupSuggestions = emptyList()
+            )
+        }
+        pickupSearchJob?.cancel()
+        if (text.trim().length < 3) return
+        pickupSearchJob = viewModelScope.launch {
+            delay(400) // anti-rebond : évite un appel réseau à chaque frappe
+            _uiState.update { it.copy(isSearchingPickup = true) }
+            try {
+                val results = api.searchAddress(text)
+                _uiState.update { it.copy(pickupSuggestions = results, isSearchingPickup = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isSearchingPickup = false, errorMessage = e.message ?: "Erreur de recherche d'adresse")
+                }
+            }
+        }
     }
 
+    fun selectPickupSuggestion(result: GeocodeResult) {
+        pickupSearchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                pickupAddress = result.displayName,
+                pickupLat = result.lat,
+                pickupLng = result.lng,
+                pickupSuggestions = emptyList()
+            )
+        }
+    }
+
+    fun updateDropoffQuery(text: String) {
+        _uiState.update {
+            it.copy(
+                dropoffAddress = text,
+                dropoffLat = null,
+                dropoffLng = null,
+                dropoffSuggestions = emptyList()
+            )
+        }
+        dropoffSearchJob?.cancel()
+        if (text.trim().length < 3) return
+        dropoffSearchJob = viewModelScope.launch {
+            delay(400)
+            _uiState.update { it.copy(isSearchingDropoff = true) }
+            try {
+                val results = api.searchAddress(text)
+                _uiState.update { it.copy(dropoffSuggestions = results, isSearchingDropoff = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isSearchingDropoff = false, errorMessage = e.message ?: "Erreur de recherche d'adresse")
+                }
+            }
+        }
+    }
+
+    fun selectDropoffSuggestion(result: GeocodeResult) {
+        dropoffSearchJob?.cancel()
+        _uiState.update {
+            it.copy(
+                dropoffAddress = result.displayName,
+                dropoffLat = result.lat,
+                dropoffLng = result.lng,
+                dropoffSuggestions = emptyList()
+            )
+        }
+    }
+
+    fun updateParcelType(type: ParcelType) = _uiState.update { it.copy(parcelType = type) }
+
+    // --- Estimation et création de commande ---
+
     fun estimatePrice() {
+        val state = _uiState.value
+        val pLat = state.pickupLat
+        val pLng = state.pickupLng
+        val dLat = state.dropoffLat
+        val dLng = state.dropoffLng
+        if (pLat == null || pLng == null || dLat == null || dLng == null) {
+            _uiState.update { it.copy(errorMessage = "Choisis une adresse dans la liste de suggestions.") }
+            return
+        }
         viewModelScope.launch {
             setBusy(true)
             try {
-                val (pLat, pLng) = fakeCoordinatesFor(_uiState.value.pickupAddress)
-                val (dLat, dLng) = fakeCoordinatesFor(_uiState.value.dropoffAddress)
-                pendingPickupLat = pLat; pendingPickupLng = pLng
-                pendingDropoffLat = dLat; pendingDropoffLng = dLng
-
                 val response = api.estimateOrder(
-                    OrderEstimateRequest(pLat, pLng, dLat, dLng, _uiState.value.parcelType.apiValue)
+                    OrderEstimateRequest(pLat, pLng, dLat, dLng, state.parcelType.apiValue)
                 )
                 _uiState.update {
                     it.copy(
@@ -160,18 +236,27 @@ class AppViewModel : ViewModel() {
     }
 
     fun confirmOrder(onResult: (Boolean) -> Unit) {
+        val state = _uiState.value
+        val pLat = state.pickupLat
+        val pLng = state.pickupLng
+        val dLat = state.dropoffLat
+        val dLng = state.dropoffLng
+        if (pLat == null || pLng == null || dLat == null || dLng == null) {
+            _uiState.update { it.copy(errorMessage = "Choisis une adresse dans la liste de suggestions.") }
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
             setBusy(true)
             try {
-                val state = _uiState.value
                 val response = api.createOrder(
                     OrderCreateRequest(
                         pickupAddress = state.pickupAddress,
-                        pickupLat = pendingPickupLat,
-                        pickupLng = pendingPickupLng,
+                        pickupLat = pLat,
+                        pickupLng = pLng,
                         dropoffAddress = state.dropoffAddress,
-                        dropoffLat = pendingDropoffLat,
-                        dropoffLng = pendingDropoffLng,
+                        dropoffLat = dLat,
+                        dropoffLng = dLng,
                         parcelType = state.parcelType.apiValue
                     )
                 )
@@ -302,13 +387,19 @@ class AppViewModel : ViewModel() {
                 currentOrder = null,
                 chatMessages = emptyList(),
                 pickupAddress = "",
-                dropoffAddress = ""
+                pickupLat = null,
+                pickupLng = null,
+                dropoffAddress = "",
+                dropoffLat = null,
+                dropoffLng = null
             )
         }
     }
 
     override fun onCleared() {
         stopOrderPolling()
+        pickupSearchJob?.cancel()
+        dropoffSearchJob?.cancel()
         super.onCleared()
     }
 }

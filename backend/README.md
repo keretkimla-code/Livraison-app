@@ -121,3 +121,21 @@ Défini dans `app/config.py` :
 | POST | `/orders/{id}/rate` | Noter le livreur |
 | GET | `/orders/history` | Historique des commandes |
 | WS | `/ws/orders/{id}` | Suivi temps réel |
+| GET | `/geocode/search?q=...` | Recherche d'adresses (proxy Nominatim/OSM, restreint au Tchad) |
+
+## Géocodage des adresses
+
+L'endpoint `/geocode/search` interroge [Nominatim](https://nominatim.org/)
+(OpenStreetMap), gratuit et sans clé API — idéal pour démarrer. Points
+d'attention :
+- **Politique d'usage Nominatim** : pas plus d'~1 requête/seconde, et un
+  `User-Agent` identifiant l'app est obligatoire (déjà en place dans
+  `app/routers/geocode.py`, à personnaliser avec un vrai contact avant
+  la prod)
+- Si le volume de recherches grandit, passe à un fournisseur payant
+  avec un meilleur SLA : Mapbox Geocoding, LocationIQ, ou Google Places
+  API — il suffira de changer l'implémentation de cette seule route,
+  les apps mobiles n'ont pas à changer
+- Pas de cache pour l'instant : chaque recherche tapée par l'utilisateur
+  déclenche un appel à Nominatim (avec anti-rebond de 400ms côté app) —
+  ajouter un cache Redis par requête serait une amélioration utile en V1

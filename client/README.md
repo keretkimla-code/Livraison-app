@@ -27,6 +27,10 @@ venv/bin/uvicorn app.main:app --host 0.0.0.0 --reload
   de test `0000`), token JWT
 - **Estimation de prix** : `POST /orders/estimate`, calculée sur la vraie
   distance entre les deux adresses
+- **Recherche d'adresse** : `GET /geocode/search`, avec suggestions en
+  temps réel pendant la saisie (proxy Nominatim/OpenStreetMap côté
+  serveur, restreint au Tchad) — il faut choisir une suggestion dans la
+  liste pour que l'adresse ait des coordonnées GPS valides
 - **Création de commande** : `POST /orders`
 - **Suivi de commande** : `GET /orders/{id}` interrogé toutes les 3
   secondes tant que la commande n'est pas arrivée à destination
@@ -43,9 +47,6 @@ parcours.
 
 ## Ce qui reste simulé côté app (documenté dans le code)
 
-- **Géocodage des adresses** : les coordonnées GPS des adresses saisies
-  sont générées de façon déterministe autour de N'Djamena (pas de vrai
-  service de géocodage) → intégrer Google Places API ou Nominatim/OSM en V1
 - **Position du livreur sur la carte** : déduite du statut de la
   commande, pas d'un flux GPS temps réel → prévu via WebSocket en V1
   (le backend expose déjà `/ws/orders/{id}` pour ça)
