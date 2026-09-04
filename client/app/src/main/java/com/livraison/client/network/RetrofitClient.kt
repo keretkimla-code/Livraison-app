@@ -18,7 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  *   en gardant le "/" final
  */
 object RetrofitClient {
-    var baseUrl: String = "http://10.0.2.2:8000/"
+        var baseUrl: String = "https://effective-computing-machine-7vg95gx6wvg5fr5w6-8000.app.github.dev/"
         private set
 
     private var authToken: String? = null
