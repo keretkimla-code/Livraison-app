@@ -18,7 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  *   en gardant le "/" final
  */
 object RetrofitClient {
-        var baseUrl: String = "https://effective-computing-machine-7vg95gx6wvg5fr5w6-8000.app.github.dev/"
+            var baseUrl: String = "https://scaling-goldfish-wrw75w4pxvp6f9vpp-8000.app.github.dev/"
         private set
 
     private var authToken: String? = null
