@@ -8,11 +8,12 @@ from app.config import DEFAULT_SEARCH_RADIUS_KM, BASE_FARE, FARE_PER_KM, PARCEL_
 from app.database import get_db
 from app.models import (
     User, Order, OrderStatus, CourierProfile, CourierStatus, Rating,
+    ZoneTarifaire, Dispute,
 )
 from app.schemas import (
     OrderEstimateRequest, OrderEstimateResponse, OrderCreateRequest, OrderOut,
     OrderStatusUpdate, ConfirmDeliveryRequest, PayOrderRequest, RateOrderRequest,
-    NearbyCourierOut,
+    NearbyCourierOut, DisputeCreateRequest, DisputeOut,
 )
 from app.security import get_current_user, require_role
 from app.utils.geo import haversine_km
@@ -21,9 +22,29 @@ from app.routers.ws import manager
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
-def _compute_price(distance_km: float, parcel_type: str) -> int:
+def _compute_price(db: Session, distance_km: float, parcel_type: str) -> int:
+    """
+    Calcule le prix d'une course. Si une zone tarifaire active est marquée
+    comme zone par défaut dans le back-office admin (table zones_tarifaires,
+    section 4/5 du schéma directeur), ses tarifs remplacent les valeurs
+    codées en dur dans config.py. Sinon, on retombe sur BASE_FARE/FARE_PER_KM.
+
+    Limite connue : pas de découpage géographique réel par polygone (ça
+    demanderait PostGIS) — voir la note dans le modèle ZoneTarifaire.
+    """
+    base_fare, fare_per_km, multiplicateur = BASE_FARE, FARE_PER_KM, 1.0
+    default_zone = (
+        db.query(ZoneTarifaire)
+        .filter(ZoneTarifaire.is_default.is_(True), ZoneTarifaire.actif.is_(True))
+        .first()
+    )
+    if default_zone is not None:
+        base_fare = default_zone.tarif_base
+        fare_per_km = default_zone.tarif_km
+        multiplicateur = default_zone.heure_pointe_multiplicateur or 1.0
+
     surcharge = PARCEL_SURCHARGE.get(parcel_type, 0)
-    return round(BASE_FARE + distance_km * FARE_PER_KM + surcharge)
+    return round((base_fare + distance_km * fare_per_km) * multiplicateur + surcharge)
 
 
 def _order_or_404(db: Session, order_id: str) -> Order:
@@ -41,11 +62,11 @@ def _ensure_participant(order: Order, user: User) -> None:
 # --- Estimation (sans écriture en base) ---
 
 @router.post("/estimate", response_model=OrderEstimateResponse)
-def estimate_order(payload: OrderEstimateRequest):
+def estimate_order(payload: OrderEstimateRequest, db: Session = Depends(get_db)):
     distance = haversine_km(
         payload.pickup_lat, payload.pickup_lng, payload.dropoff_lat, payload.dropoff_lng
     )
-    price = _compute_price(distance, payload.parcel_type.value)
+    price = _compute_price(db, distance, payload.parcel_type.value)
     return OrderEstimateResponse(distance_km=round(distance, 2), price=price)
 
 
@@ -60,7 +81,7 @@ def create_order(
     distance = haversine_km(
         payload.pickup_lat, payload.pickup_lng, payload.dropoff_lat, payload.dropoff_lng
     )
-    price = _compute_price(distance, payload.parcel_type.value)
+    price = _compute_price(db, distance, payload.parcel_type.value)
 
     order = Order(
         client_id=user.id,
@@ -297,3 +318,40 @@ def rate_order(
 
     db.commit()
     return {"message": "Merci pour ta note !"}
+
+
+# --- Litiges (support client — section 3.3 du schéma directeur) ---
+
+@router.post("/{order_id}/dispute", response_model=DisputeOut)
+def open_dispute(
+    order_id: str,
+    payload: DisputeCreateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Le client ou le livreur signale un problème sur une commande ;
+    le litige apparaît ensuite dans le back-office admin pour traitement."""
+    order = _order_or_404(db, order_id)
+    _ensure_participant(order, user)
+
+    dispute = Dispute(
+        order_id=order_id,
+        reported_by_id=user.id,
+        reason=payload.reason,
+        description=payload.description,
+    )
+    db.add(dispute)
+    db.commit()
+    db.refresh(dispute)
+    return dispute
+
+
+@router.get("/{order_id}/disputes", response_model=List[DisputeOut])
+def list_order_disputes(
+    order_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    order = _order_or_404(db, order_id)
+    _ensure_participant(order, user)
+    return db.query(Dispute).filter(Dispute.order_id == order_id).order_by(Dispute.created_at.desc()).all()

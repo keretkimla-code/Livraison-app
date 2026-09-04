@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -11,6 +14,29 @@ from app.database import get_db
 from app.models import User
 
 bearer_scheme = HTTPBearer()
+
+# --- Mots de passe (comptes admin uniquement) ---
+# PBKDF2-HMAC-SHA256 pur stdlib : évite d'ajouter une dépendance (bcrypt/passlib)
+# juste pour les quelques comptes admin du back-office. Suffisant pour ce volume
+# de comptes ; à revoir si le back-office gère un jour beaucoup d'utilisateurs.
+_PBKDF2_ITERATIONS = 260_000
+
+
+def hash_password(raw_password: str) -> str:
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", raw_password.encode("utf-8"), salt, _PBKDF2_ITERATIONS)
+    return f"{salt.hex()}${digest.hex()}"
+
+
+def verify_password(raw_password: str, stored_hash: str) -> bool:
+    try:
+        salt_hex, digest_hex = stored_hash.split("$")
+    except (ValueError, AttributeError):
+        return False
+    salt = bytes.fromhex(salt_hex)
+    expected = bytes.fromhex(digest_hex)
+    candidate = hashlib.pbkdf2_hmac("sha256", raw_password.encode("utf-8"), salt, _PBKDF2_ITERATIONS)
+    return hmac.compare_digest(candidate, expected)
 
 
 def create_access_token(user_id: str, role: str) -> str:

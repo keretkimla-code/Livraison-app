@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.models import User, UserRole
 from app.schemas import SendOtpRequest, VerifyOtpRequest, TokenResponse
 from app.security import create_access_token
 
@@ -46,6 +46,13 @@ def verify_otp(payload: VerifyOtpRequest, db: Session = Depends(get_db)):
 
     if not valid:
         raise HTTPException(status_code=400, detail="Code OTP invalide ou expiré")
+
+    # Le rôle admin ne se crée jamais via l'OTP client/livreur : les comptes
+    # admin sont créés au bootstrap (voir app/main.py) ou par un autre admin.
+    # Sans ce garde-fou, n'importe qui pourrait s'auto-promouvoir admin en
+    # passant role="admin" dans le corps de la requête.
+    if payload.role == UserRole.admin:
+        raise HTTPException(status_code=403, detail="Ce rôle ne peut pas être créé par ce canal")
 
     user = db.query(User).filter(User.phone == payload.phone).first()
     if user is None:

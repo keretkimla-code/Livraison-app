@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from pydantic import BaseModel, Field
 
-from app.models import UserRole, CourierStatus, VehicleType, ParcelType, OrderStatus
+from app.models import UserRole, CourierStatus, VehicleType, ParcelType, OrderStatus, DisputeStatus
 
 
 # --- Auth ---
@@ -164,3 +164,101 @@ class ChatMessageOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Admin / Back-office ---
+
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class ZoneTarifaireIn(BaseModel):
+    nom_zone: str
+    tarif_base: int = Field(..., ge=0)
+    tarif_km: int = Field(..., ge=0)
+    heure_pointe_multiplicateur: float = Field(1.0, ge=1.0)
+    is_default: bool = False
+    actif: bool = True
+
+
+class ZoneTarifaireOut(BaseModel):
+    id: str
+    nom_zone: str
+    tarif_base: int
+    tarif_km: int
+    heure_pointe_multiplicateur: float
+    is_default: bool
+    actif: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CourierAdminOut(BaseModel):
+    id: str
+    user_id: str
+    full_name: Optional[str]
+    phone: str
+    vehicle_type: VehicleType
+    plate_number: Optional[str]
+    id_document_uploaded: bool
+    vehicle_photo_uploaded: bool
+    status: CourierStatus
+    is_available: bool
+    rating_avg: float
+    rating_count: int
+    total_earnings: int
+
+
+class CourierValidationRequest(BaseModel):
+    note: Optional[str] = None
+
+
+class DisputeCreateRequest(BaseModel):
+    reason: str
+    description: Optional[str] = None
+
+
+class DisputeResolveRequest(BaseModel):
+    resolution_note: str
+
+
+class DisputeOut(BaseModel):
+    id: str
+    order_id: str
+    reported_by_id: str
+    reason: str
+    description: Optional[str]
+    status: DisputeStatus
+    resolution_note: Optional[str]
+    created_at: datetime
+    resolved_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class GpsLogOut(BaseModel):
+    id: str
+    courier_id: str
+    order_id: Optional[str]
+    lat: float
+    lng: float
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DashboardStats(BaseModel):
+    orders_total: int
+    orders_by_status: dict
+    revenue_total: int
+    commission_total: int
+    couriers_validated: int
+    couriers_pending: int
+    clients_total: int
+    disputes_open: int
