@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.livraison.client.data.model.DeliveryOrder
 import com.livraison.client.data.model.OrderStatus
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     orders: List<DeliveryOrder>,
