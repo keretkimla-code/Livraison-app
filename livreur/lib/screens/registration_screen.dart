@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/courier.dart';
 import '../state/app_state.dart';
+import '../models/order.dart';
 import 'home_screen.dart';
 
 enum _Step { phone, otp, profile, pending }
