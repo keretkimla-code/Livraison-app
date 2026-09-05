@@ -48,7 +48,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         if (profile.status == RegistrationStatus.pending && _step == _Step.profile) {
       return Scaffold(
         appBar: AppBar(title: const Text('Inscription Livreur')),
-        body: const Center(
+        body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Column(
@@ -66,6 +66,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   'Un administrateur va vérifier tes documents. Reviens bientôt pour voir si ton compte est validé.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.black54),
+                ),
+                SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => appState.refreshProfile(),
+                  child: const Text('Vérifier mon statut'),
                 ),
               ],
             ),
