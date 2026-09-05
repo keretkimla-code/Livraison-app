@@ -45,6 +45,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       });
     }
+        if (profile.status == RegistrationStatus.pending && _step == _Step.profile) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Inscription Livreur')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.hourglass_top, size: 64, color: Colors.orange),
+                SizedBox(height: 16),
+                Text(
+                  'Dossier envoyé avec succès !',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Un administrateur va vérifier tes documents. Reviens bientôt pour voir si ton compte est validé.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Inscription Livreur')),
