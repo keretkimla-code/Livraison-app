@@ -22,7 +22,7 @@ class ApiException implements Exception {
 ///   backend avec `uvicorn app.main:app --host 0.0.0.0`
 /// - Backend déployé en ligne : son URL publique en HTTPS
 class ApiClient {
-    static const String baseUrl = 'http://192.168.100.3:8000';
+    static const String baseUrl = 'http://192.168.100.82:8000';
 
   String? _token;
 
