@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import (
     Column, String, Float, Boolean, DateTime, ForeignKey, Enum, Integer, Text
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 
 from app.database import Base
 
@@ -125,6 +125,26 @@ class Order(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def courier_lat(self):
+        if not self.courier_id:
+            return None
+        session = object_session(self)
+        if session is None:
+            return None
+        cp = session.query(CourierProfile).filter(CourierProfile.user_id == self.courier_id).first()
+        return cp.current_lat if cp else None
+
+    @property
+    def courier_lng(self):
+        if not self.courier_id:
+            return None
+        session = object_session(self)
+        if session is None:
+            return None
+        cp = session.query(CourierProfile).filter(CourierProfile.user_id == self.courier_id).first()
+        return cp.current_lng if cp else None
 
 
 class Rating(Base):
