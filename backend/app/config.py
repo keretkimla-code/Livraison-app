@@ -9,7 +9,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 # Rayon de recherche par défaut pour le matching livreur <-> commande (km)
-DEFAULT_SEARCH_RADIUS_KM = 5.0
+DEFAULT_SEARCH_RADIUS_KM = 50.0
 
 # Tarification par défaut (utilisée tant qu'aucune zone tarifaire active
 # n'est configurée par l'admin dans le back-office — voir zones_tarifaires

@@ -33,6 +33,7 @@ class AppState extends ChangeNotifier {
   bool isAvailable = false;
   List<DeliveryOrder> incomingRequests = [];
   DeliveryOrder? currentOrder;
+  List<Map<String, dynamic>> chatMessages = [];
   List<DeliveryOrder> history = [];
 
   // --- UI ---
@@ -330,5 +331,29 @@ class AppState extends ChangeNotifier {
     _pollTimer?.cancel();
     _routeTimer?.cancel();
     super.dispose();
+  }
+  Future<void> loadChatMessages() async {
+    final order = currentOrder;
+    if (order == null) return;
+    try {
+      final json = await _api.get('/orders/${order.id}/messages');
+      chatMessages = (json as List).cast<Map<String, dynamic>>();
+      notifyListeners();
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> sendChatMessage(String text) async {
+    final order = currentOrder;
+    if (order == null || text.trim().isEmpty) return;
+    try {
+      await _api.post('/orders/${order.id}/messages', {'text': text});
+      await loadChatMessages();
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+    }
   }
 }

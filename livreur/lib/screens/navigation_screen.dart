@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/order.dart';
 import '../state/app_state.dart';
 import 'delivery_confirmation_screen.dart';
+import 'chat_screen.dart';
 
 class NavigationScreen extends StatelessWidget {
   const NavigationScreen({super.key});
@@ -63,6 +64,16 @@ class NavigationScreen extends StatelessWidget {
                   Text(headingToPickup ? order.pickupAddress : order.dropoffAddress),
                   const SizedBox(height: 4),
                   Text('Commande ${order.id} · ${order.price} FCFA'),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.chat),
+                    label: const Text('Chat avec le client'),
+                  ),
                   const SizedBox(height: 16),
                   if (appState.errorMessage != null) ...[
                     Text(appState.errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 12)),
