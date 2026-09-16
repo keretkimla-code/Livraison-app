@@ -26,7 +26,7 @@ const Api = (() => {
   let session = loadSession();
 
   function getApiBase() {
-    return (session && session.apiBase) || https://livraison-backend-ojqf.onrender.com
+    return (session && session.apiBase) || "https://livraison-backend-ojqf.onrender.com"
   }
 
   function isLoggedIn() {
