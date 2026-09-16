@@ -18,7 +18,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  *   en gardant le "/" final
  */
 object RetrofitClient {
-            var baseUrl: String = "http://192.168.100.82:8000/"
+    var baseUrl: String = "https://livraison-backend-ojqf.onrender.com/"
         private set
 
     private var authToken: String? = null
