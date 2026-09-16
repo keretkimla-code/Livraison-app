@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/courier.dart';
 import '../models/order.dart';
 import '../services/api_client.dart';
@@ -149,11 +150,22 @@ class AppState extends ChangeNotifier {
     _setBusy(true);
     try {
       if (value) {
-        // Position GPS simulée autour de N'Djamena (à remplacer par
-        // `geolocator` pour une vraie position en V1).
-        final lat = 12.1348 + (_random.nextDouble() - 0.5) * 0.05;
-        final lng = 15.0557 + (_random.nextDouble() - 0.5) * 0.05;
-        await _api.patch('/couriers/me/location', {'lat': lat, 'lng': lng});
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          throw Exception('Active la localisation sur ton téléphone.');
+        }
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            throw Exception('Permission de localisation refusée.');
+          }
+        }
+        if (permission == LocationPermission.deniedForever) {
+          throw Exception('Active la permission de localisation dans les paramètres du téléphone.');
+        }
+        final position = await Geolocator.getCurrentPosition();
+        await _api.patch('/couriers/me/location', {'lat': position.latitude, 'lng': position.longitude});
       }
       final json = await _api.patch('/couriers/me/availability', {'is_available': value});
       profile = CourierProfile.fromJson(
