@@ -137,8 +137,8 @@ class OrderOut(BaseModel):
     # (c'est le client qui le communique de vive voix au livreur à la
     # livraison) — à restreindre lors du passage en V1.
     delivery_code: Optional[str]
-        courier_lat: Optional[float] = None
-        courier_lng: Optional[float] = None
+    courier_lat: Optional[float] = none
+    courier_lng: Optional[float] = none
     created_at: datetime
     updated_at: datetime
 
