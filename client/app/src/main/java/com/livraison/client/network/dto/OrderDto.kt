@@ -45,6 +45,8 @@ data class OrderResponse(
     val status: String,
     @SerializedName("payment_method") val paymentMethod: String?,
     @SerializedName("delivery_code") val deliveryCode: String?,
+    @SerializedName("courier_lat") val courierLat: Double?,
+    @SerializedName("courier_lng") val courierLng: Double?,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("updated_at") val updatedAt: String
 )

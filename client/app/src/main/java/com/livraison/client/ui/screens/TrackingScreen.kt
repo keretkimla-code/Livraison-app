@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.livraison.client.data.AppUiState
 import com.livraison.client.data.model.OrderStatus
+import kotlin.math.*
 
 @Composable
 fun TrackingScreen(
@@ -53,13 +54,26 @@ fun TrackingScreen(
                 drawCircle(color = Color(0xFF1565C0), radius = 24f, center = courierPos)
                 drawCircle(color = Color.White, radius = 10f, center = courierPos)
             }
-            Text(
-                "Position approximative selon le statut (pas de GPS live pour l'instant)",
-                fontSize = 11.sp,
+            val distanceText = if (order?.courierLat != null && order.courierLng != null) {
+                val km = haversineKm(order.courierLat, order.courierLng, order.dropoffLat, order.dropoffLng)
+                "Livreur à %.1f km de l'arrivée (position GPS réelle)".format(km)
+            } else {
+                "Position du livreur non disponible pour le moment"
+            }
+            Surface(
+                color = Color.White,
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(8.dp)
-            )
+            ) {
+                Text(
+                    distanceText,
+                    fontSize = 11.sp,
+                    color = Color.Black,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
         }
 
         Card(
@@ -112,4 +126,13 @@ fun TrackingScreen(
             }
         }
     }
+}
+
+private fun haversineKm(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+    val r = 6371.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLng = Math.toRadians(lng2 - lng1)
+    val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLng / 2).pow(2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return r * c
 }

@@ -57,10 +57,12 @@ data class DeliveryOrder(
     val price: Int,
     val status: OrderStatus,
     val paymentMethod: String?,
-    val deliveryCode: String?
+    val deliveryCode: String?,
+    val courierLat: Double?,
+    val courierLng: Double?,
 ) {
     companion object {
-        fun fromResponse(r: OrderResponse): DeliveryOrder = DeliveryOrder(
+        fun fromResponse(r: OrderResponse) = DeliveryOrder(
             id = r.id,
             clientId = r.clientId,
             courierId = r.courierId,
@@ -75,7 +77,9 @@ data class DeliveryOrder(
             price = r.price,
             status = OrderStatus.fromApi(r.status),
             paymentMethod = r.paymentMethod,
-            deliveryCode = r.deliveryCode
+            deliveryCode = r.deliveryCode,
+            courierLat = r.courierLat,
+            courierLng = r.courierLng,
         )
     }
 }
