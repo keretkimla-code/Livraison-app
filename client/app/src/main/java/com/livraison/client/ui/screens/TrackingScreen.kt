@@ -1,6 +1,5 @@
 package com.livraison.client.ui.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
@@ -8,15 +7,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.livraison.client.data.AppUiState
 import com.livraison.client.data.model.OrderStatus
 import kotlin.math.*
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 
 @Composable
 fun TrackingScreen(
@@ -32,34 +35,52 @@ fun TrackingScreen(
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val start = Offset(size.width * 0.15f, size.height * 0.85f)
-                val end = Offset(size.width * 0.85f, size.height * 0.15f)
-
-                drawLine(
-                    color = Color(0xFFBBBBBB),
-                    start = start,
-                    end = end,
-                    strokeWidth = 6f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(16f, 12f))
-                )
-                drawCircle(color = Color(0xFF2E7D32), radius = 18f, center = start)
-                drawCircle(color = Color(0xFFC62828), radius = 18f, center = end)
-
-                val progress = order?.let { OrderStatus.progressFor(it.status) } ?: 0f
-                val courierPos = Offset(
-                    x = start.x + (end.x - start.x) * progress,
-                    y = start.y + (end.y - start.y) * progress
-                )
-                drawCircle(color = Color(0xFF1565C0), radius = 24f, center = courierPos)
-                drawCircle(color = Color.White, radius = 10f, center = courierPos)
-            }
             val distanceText = if (order?.courierLat != null && order.courierLng != null) {
-                val km = haversineKm(order.courierLat, order.courierLng, order.dropoffLat, order.dropoffLng)
-                "Livreur à %.1f km de l'arrivée (position GPS réelle)".format(km)
-            } else {
-                "Position du livreur non disponible pour le moment"
-            }
+            val km = haversineKm(order.courierLat, order.courierLng, order.dropoffLat, order.dropoffLng)
+            "Livreur à %.1f km de l'arrivée (position GPS réelle)".format(km)
+        } else {
+            "Position du livreur non disponible pour le moment"
+        }
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    Configuration.getInstance().userAgentValue = context.packageName
+                    MapView(context).apply {
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(14.0)
+                    }
+                },
+                update = { mapView ->
+                    mapView.overlays.clear()
+                    if (order != null) {
+                        val pickup = GeoPoint(order.pickupLat, order.pickupLng)
+                        val dropoff = GeoPoint(order.dropoffLat, order.dropoffLng)
+
+                        val pickupMarker = Marker(mapView)
+                        pickupMarker.position = pickup
+                        pickupMarker.title = "Départ"
+                        mapView.overlays.add(pickupMarker)
+
+                        val dropoffMarker = Marker(mapView)
+                        dropoffMarker.position = dropoff
+                        dropoffMarker.title = "Arrivée"
+                        mapView.overlays.add(dropoffMarker)
+
+                        if (order.courierLat != null && order.courierLng != null) {
+                            val courierPoint = GeoPoint(order.courierLat, order.courierLng)
+                            val courierMarker = Marker(mapView)
+                            courierMarker.position = courierPoint
+                            courierMarker.title = "Livreur"
+                            mapView.overlays.add(courierMarker)
+                            mapView.controller.setCenter(courierPoint)
+                        } else {
+                            mapView.controller.setCenter(pickup)
+                        }
+                    }
+                    mapView.invalidate()
+                }
+            )
             Surface(
                 color = Color.White,
                 shape = MaterialTheme.shapes.small,
