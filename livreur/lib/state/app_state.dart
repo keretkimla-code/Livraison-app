@@ -42,6 +42,7 @@ class AppState extends ChangeNotifier {
   String? errorMessage;
 
   Timer? _pollTimer;
+  Timer? _locationTimer;
   Timer? _routeTimer;
 
   void clearError() {
@@ -158,7 +159,7 @@ class AppState extends ChangeNotifier {
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission();
           if (permission == LocationPermission.denied) {
-            throw Exception('Permission de localisation refusée.');
+            throw Exception('Permission de localsation refusée.');
           }
         }
         if (permission == LocationPermission.deniedForever) {
@@ -177,8 +178,11 @@ class AppState extends ChangeNotifier {
       errorMessage = null;
       if (value) {
         _startPolling();
+        _locationTimer?.cancel();
+        _locationTimer = Timer.periodic(const Duration(seconds: 10), (_) => _sendRealLocation());
       } else {
         _pollTimer?.cancel();
+        _locationTimer?.cancel();
         incomingRequests = [];
       }
     } catch (e) {
@@ -188,6 +192,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> _sendRealLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      await _api.patch('/couriers/me/location', {'lat': position.latitude, 'lng': position.longitude});
+    } catch (_) {
+      // Erreur silencieuse : on ne bloque pas l'app si le GPS échoue ponctuellement.
+    }
+  }
   void _startPolling() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) => _refreshNearbyOrders());
