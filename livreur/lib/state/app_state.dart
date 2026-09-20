@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/courier.dart';
 import '../models/order.dart';
 import '../services/api_client.dart';
@@ -21,6 +22,12 @@ import '../services/api_client.dart';
 class AppState extends ChangeNotifier {
   final ApiClient _api = ApiClient();
   final Random _random = Random();
+
+  bool isRestoring = true;
+
+  AppState() {
+    _restoreSession();
+  }
 
   // --- Authentification ---
   String phoneNumber = '';
@@ -87,6 +94,9 @@ class AppState extends ChangeNotifier {
         'full_name': fullName,
       });
       _api.setToken(json['access_token'] as String);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', json['access_token'] as String);
+      await prefs.setString('phone', phoneNumber);
       isAuthenticated = true;
       profile = profile.copyWith(fullName: fullName, phoneNumber: phoneNumber);
       errorMessage = null;
@@ -147,6 +157,56 @@ class AppState extends ChangeNotifier {
 
   // --- Disponibilité et position ---
 
+  Future<void> _restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final phone = prefs.getString('phone');
+
+    if (token == null) {
+      isRestoring = false;
+      notifyListeners();
+      return;
+    }
+
+    _api.setToken(token);
+    isAuthenticated = true;
+    phoneNumber = phone ?? '';
+
+    try {
+      final json = await _api.get('/couriers/me');
+      profile = CourierProfile.fromJson(json, fullName: '', phoneNumber: phoneNumber);
+    } catch (_) {
+      // Pas encore de profil livreur, ou session invalide : on continue quand même.
+    }
+
+    final savedOrderId = prefs.getString('current_order_id');
+    if (savedOrderId != null) {
+      try {
+        final json = await _api.get('/orders/$savedOrderId');
+        final order = DeliveryOrder.fromJson(json);
+        if (order.status != OrderStatus.paid) {
+          currentOrder = order;
+        } else {
+          await prefs.remove('current_order_id');
+        }
+      } catch (_) {
+        await prefs.remove('current_order_id');
+      }
+    }
+
+    isRestoring = false;
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    _api.clearToken();
+    isAuthenticated = false;
+    phoneNumber = '';
+    currentOrder = null;
+    notifyListeners();
+  }
   Future<void> setAvailable(bool value) async {
     _setBusy(true);
     try {
@@ -238,6 +298,8 @@ class AppState extends ChangeNotifier {
     try {
       final json = await _api.post('/orders/$orderId/accept');
       currentOrder = DeliveryOrder.fromJson(json);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_order_id', currentOrder!.id);
       incomingRequests = [];
       _pollTimer?.cancel();
       errorMessage = null;
@@ -311,6 +373,8 @@ class AppState extends ChangeNotifier {
     try {
       await _api.post('/orders/${order.id}/confirm-delivery', {'code': code});
       currentOrder = null;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_order_id');
       errorMessage = null;
       if (isAvailable) _startPolling();
       return true;

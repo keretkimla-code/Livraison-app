@@ -76,7 +76,13 @@ fun LivraisonApp() {
                     viewModel.estimatePrice()
                     navController.navigate(Screen.Estimate.route)
                 },
-                onOpenHistory = { navController.navigate(Screen.History.route) }
+                onOpenHistory = { navController.navigate(Screen.History.route) },
+                onLogout = {
+                    viewModel.logout()
+                    navController.navigate(Screen.Auth.route) {
+                        popUpTo(0)
+                    }
+                }
             )
         }
         composable(Screen.Estimate.route) {

@@ -16,12 +16,21 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
+  @override
+  void initState() {
+    super.initState();
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (appState.isAuthenticated) {
+      _step = _Step.profile;
+    }
+  }
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   final _plateController = TextEditingController();
   VehicleType _vehicleType = VehicleType.moto;
   _Step _step = _Step.phone;
+  bool _forceEditProfile = false;
 
   @override
   void dispose() {
@@ -45,9 +54,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       });
     }
-        if (profile.status == RegistrationStatus.pending && _step == _Step.profile) {
+    if (profile.status == RegistrationStatus.pending && _step == _Step.profile && !_forceEditProfile) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Inscription Livreur')),
+        appBar: AppBar(
+          title: const Text('Inscription Livreur'),
+          leading: (_step != _Step.phone)
+              ? IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              setState(() {
+                if (_forceEditProfile) {
+                  _forceEditProfile = false;
+                } else if (_step == _Step.profile) {
+                  _step = _Step.otp;
+                } else if (_step == _Step.otp) {
+                  _step = _Step.phone;
+                }
+              });
+            },
+          )
+              : null,
+        ),
         body: Center(
           child: Padding(
             padding: EdgeInsets.all(24),
@@ -72,7 +99,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   onPressed: () => appState.refreshProfile(),
                   child: const Text('Vérifier mon statut'),
                 ),
+                SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => setState(() => _forceEditProfile = true),
+                  child: const Text('Modifier mon dossier'),
+                ),
               ],
+
             ),
           ),
         ),
@@ -80,7 +113,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Inscription Livreur')),
+      appBar: AppBar(
+        title: const Text('Inscription Livreur'),
+        leading: (_step != _Step.phone)
+            ? IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              if (_forceEditProfile) {
+                _forceEditProfile = false;
+              } else if (_step == _Step.profile) {
+                _step = _Step.otp;
+              } else if (_step == _Step.otp) {
+                _step = _Step.phone;
+              }
+            });
+          },
+        )
+            : null,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

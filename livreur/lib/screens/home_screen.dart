@@ -66,6 +66,11 @@ class _RequestsTab extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Se déconnecter',
+            onPressed: () => context.read<AppState>().logout(),
+          ),
         ],
       ),
       body: Column(
