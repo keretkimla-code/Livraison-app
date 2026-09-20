@@ -1,6 +1,7 @@
 package com.livraison.client.data
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.livraison.client.data.model.ChatMessage
 import com.livraison.client.data.model.DeliveryOrder
@@ -59,7 +60,9 @@ data class AppUiState(
         get() = pickupLat != null && pickupLng != null && dropoffLat != null && dropoffLng != null
 }
 
-class AppViewModel : ViewModel() {
+class AppViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("livraison_prefs", 0)
 
     private val _uiState = MutableStateFlow(AppUiState())
     val uiState: StateFlow<AppUiState> = _uiState
@@ -69,6 +72,13 @@ class AppViewModel : ViewModel() {
     private var pollingJob: Job? = null
     private var pickupSearchJob: Job? = null
     private var dropoffSearchJob: Job? = null
+
+    var isRestoring: Boolean = true
+        private set
+
+    init {
+        restoreSession()
+    }
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
@@ -111,6 +121,11 @@ class AppViewModel : ViewModel() {
                     )
                 )
                 RetrofitClient.setToken(response.accessToken)
+                prefs.edit()
+                    .putString("token", response.accessToken)
+                    .putString("phone", _uiState.value.phoneNumber)
+                    .putString("full_name", fullName)
+                    .apply()
                 _uiState.update {
                     it.copy(isAuthenticated = true, fullName = fullName, errorMessage = null)
                 }
@@ -260,9 +275,11 @@ class AppViewModel : ViewModel() {
                         parcelType = state.parcelType.apiValue
                     )
                 )
+                val order = DeliveryOrder.fromResponse(response)
                 _uiState.update {
-                    it.copy(currentOrder = DeliveryOrder.fromResponse(response), errorMessage = null)
+                    it.copy(currentOrder = order, errorMessage = null)
                 }
+                prefs.edit().putString("current_order_id", order.id).apply()
                 startOrderPolling()
                 onResult(true)
             } catch (e: Exception) {
@@ -346,6 +363,7 @@ class AppViewModel : ViewModel() {
                 val response = api.payOrder(orderId, PayOrderRequest(method))
                 _uiState.update { it.copy(currentOrder = DeliveryOrder.fromResponse(response), errorMessage = null) }
                 stopOrderPolling()
+                prefs.edit().remove("current_order_id").apply()
                 onResult(true)
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "Erreur de paiement") }
@@ -382,6 +400,7 @@ class AppViewModel : ViewModel() {
 
     fun resetCurrentOrder() {
         stopOrderPolling()
+        prefs.edit().remove("current_order_id").apply()
         _uiState.update {
             it.copy(
                 currentOrder = null,
@@ -394,6 +413,55 @@ class AppViewModel : ViewModel() {
                 dropoffLng = null
             )
         }
+    }
+
+    private fun restoreSession() {
+        val token = prefs.getString("token", null)
+        val phone = prefs.getString("phone", null)
+        val fullName = prefs.getString("full_name", null)
+
+        if (token == null) {
+            isRestoring = false
+            return
+        }
+
+        RetrofitClient.setToken(token)
+        _uiState.update {
+            it.copy(
+                isAuthenticated = true,
+                phoneNumber = phone ?: "",
+                fullName = fullName ?: ""
+            )
+        }
+
+        val savedOrderId = prefs.getString("current_order_id", null)
+        if (savedOrderId == null) {
+            isRestoring = false
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val response = api.getOrder(savedOrderId)
+                val order = DeliveryOrder.fromResponse(response)
+                if (order.status != OrderStatus.PAID) {
+                    _uiState.update { it.copy(currentOrder = order) }
+                    startOrderPolling()
+                } else {
+                    prefs.edit().remove("current_order_id").apply()
+                }
+            } catch (_: Exception) {
+                prefs.edit().remove("current_order_id").apply()
+            } finally {
+                isRestoring = false
+            }
+        }
+    }
+
+    fun logout() {
+        prefs.edit().clear().apply()
+        RetrofitClient.setToken("")
+        _uiState.update { AppUiState() }
     }
 
     override fun onCleared() {

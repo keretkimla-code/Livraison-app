@@ -3,9 +3,14 @@ package com.livraison.client
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -32,7 +37,20 @@ fun LivraisonApp() {
     val viewModel: AppViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
-    NavHost(navController = navController, startDestination = Screen.Auth.route) {
+    if (viewModel.isRestoring) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    val startDestination = when {
+        uiState.currentOrder != null -> Screen.Tracking.route
+        uiState.isAuthenticated -> Screen.Home.route
+        else -> Screen.Auth.route
+    }
+
+    NavHost(navController = navController, startDestination = startDestination) {
         composable(Screen.Auth.route) {
             AuthScreen(
                 uiState = uiState,
