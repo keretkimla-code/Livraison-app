@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/order.dart';
 import '../state/app_state.dart';
 import 'delivery_confirmation_screen.dart';
@@ -30,23 +33,52 @@ class NavigationScreen extends StatelessWidget {
       body: Column(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                CustomPaint(
-                  size: Size.infinite,
-                  painter: _RoutePainter(progress: order.routeProgress),
-                ),
-                const Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  child: Text(
-                    'Carte simplifiée (bêta) — intégration Google Maps / OSM prévue en V1',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
+            child: FutureBuilder<Position>(
+              future: Geolocator.getCurrentPosition(),
+              builder: (context, snapshot) {
+                final pickup = LatLng(order.pickupLat, order.pickupLng);
+                final dropoff = LatLng(order.dropoffLat, order.dropoffLng);
+                final courierPoint = snapshot.hasData
+                    ? LatLng(snapshot.data!.latitude, snapshot.data!.longitude)
+                    : pickup;
+
+                return FlutterMap(
+                  options: MapOptions(
+                    initialCameraFit: CameraFit.bounds(
+                      bounds: LatLngBounds.fromPoints([pickup, dropoff, courierPoint]),
+                      padding: const EdgeInsets.all(50),
+                    ),
                   ),
-                ),
-              ],
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.livraison.livreur',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: pickup,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(Icons.circle, color: Colors.green, size: 20),
+                        ),
+                        Marker(
+                          point: dropoff,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(Icons.circle, color: Colors.red, size: 20),
+                        ),
+                        Marker(
+                          point: courierPoint,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(Icons.motorcycle, color: Colors.blue, size: 28),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Card(
