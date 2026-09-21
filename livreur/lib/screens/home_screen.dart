@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'registration_screen.dart';
 import '../models/order.dart';
 import '../state/app_state.dart';
 import 'earnings_screen.dart';
@@ -69,7 +70,12 @@ class _RequestsTab extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Se déconnecter',
-            onPressed: () => context.read<AppState>().logout(),
+            onPressed: () async {
+              await context.read<AppState>().logout();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            },
           ),
         ],
       ),
@@ -86,15 +92,15 @@ class _RequestsTab extends StatelessWidget {
             child: !appState.isAvailable
                 ? const _OfflineState()
                 : appState.incomingRequests.isEmpty
-                    ? const _WaitingState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: appState.incomingRequests.length,
-                        itemBuilder: (context, index) {
-                          final order = appState.incomingRequests[index];
-                          return _RequestCard(order: order);
-                        },
-                      ),
+                ? const _WaitingState()
+                : ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: appState.incomingRequests.length,
+              itemBuilder: (context, index) {
+                final order = appState.incomingRequests[index];
+                return _RequestCard(order: order);
+              },
+            ),
           ),
         ],
       ),

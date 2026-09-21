@@ -209,6 +209,7 @@ class AppState extends ChangeNotifier {
     isAuthenticated = false;
     phoneNumber = '';
     currentOrder = null;
+    profile = const CourierProfile();
     notifyListeners();
   }
   Future<void> setAvailable(bool value) async {
