@@ -186,6 +186,10 @@ class AppState extends ChangeNotifier {
         final order = DeliveryOrder.fromJson(json);
         if (order.status != OrderStatus.paid) {
           currentOrder = order;
+          if (order.status == OrderStatus.headingToPickup ||
+              order.status == OrderStatus.headingToDropoff) {
+            _startRouteAnimation();
+          }
         } else {
           await prefs.remove('current_order_id');
         }
@@ -365,6 +369,14 @@ class AppState extends ChangeNotifier {
   }
 
   // --- Confirmation de livraison ---
+
+  Future<Map<String, dynamic>?> checkOrderStatus(String orderId) async {
+    try {
+      return await _api.get('/orders/$orderId') as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<bool> confirmDelivery({required String code}) async {
     final order = currentOrder;

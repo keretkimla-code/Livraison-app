@@ -104,7 +104,8 @@ fun LivraisonApp() {
             TrackingScreen(
                 uiState = uiState,
                 onOpenChat = { navController.navigate(Screen.Chat.route) },
-                onProceedToPayment = { navController.navigate(Screen.Payment.route) }
+                onProceedToPayment = { navController.navigate(Screen.Payment.route) },
+                onMinimize = { navController.navigate(Screen.Home.route) }
             )
         }
         composable(Screen.Chat.route) {
@@ -118,6 +119,7 @@ fun LivraisonApp() {
         composable(Screen.Payment.route) {
             PaymentScreen(
                 uiState = uiState,
+                onBack = { navController.popBackStack() },
                 onPay = { method ->
                     viewModel.payOrder(method) { success ->
                         if (success) {
