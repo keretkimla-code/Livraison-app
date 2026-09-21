@@ -37,7 +37,7 @@ fun LivraisonApp() {
     val viewModel: AppViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
-    if (viewModel.isRestoring) {
+    if (uiState.isRestoring) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }

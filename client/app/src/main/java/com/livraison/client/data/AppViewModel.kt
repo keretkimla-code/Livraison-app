@@ -53,8 +53,10 @@ data class AppUiState(
     val chatMessages: List<ChatMessage> = emptyList(),
     val orderHistory: List<DeliveryOrder> = emptyList(),
     val isBusy: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isRestoring: Boolean = true
 ) {
+
     /** La commande ne peut être estimée que si les deux adresses ont été choisies dans les suggestions. */
     val addressesReady: Boolean
         get() = pickupLat != null && pickupLng != null && dropoffLat != null && dropoffLng != null
@@ -73,8 +75,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private var pickupSearchJob: Job? = null
     private var dropoffSearchJob: Job? = null
 
-    var isRestoring: Boolean = true
-        private set
+
 
     init {
         restoreSession()
@@ -421,7 +422,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val fullName = prefs.getString("full_name", null)
 
         if (token == null) {
-            isRestoring = false
+            _uiState.update { it.copy(isRestoring = false) }
             return
         }
 
@@ -436,7 +437,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val savedOrderId = prefs.getString("current_order_id", null)
         if (savedOrderId == null) {
-            isRestoring = false
+            _uiState.update { it.copy(isRestoring = false) }
             return
         }
 
@@ -453,7 +454,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             } catch (_: Exception) {
                 prefs.edit().remove("current_order_id").apply()
             } finally {
-                isRestoring = false
+                _uiState.update { it.copy(isRestoring = false) }
             }
         }
     }
